@@ -1,0 +1,389 @@
+---
+title: "Doing the most with Avocado Toast"
+author: "Daniel Teixeira - 1445920, Christian Bester - 1242913"
+output:
+  html_document:
+    toc: true
+    theme: united
+css: styles.css
+date: "31st July 2020"
+---
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat&display=swap" rel="stylesheet">
+
+# **Rvocado**
+
+Welcome to the R project of Daniel Teixeira and Christian Bester. In this project, we will slice and dice the avocado dataset to see if we can get some meaningful insights from the much beloved fruit of the millenials!
+
+The ultimate purpose of this project is to attempt some hypothesis testing and (hopefully) confirmation, using the statistical programming software, R.
+
+# **1&nbsp;&nbsp;&nbsp;&nbsp;Setting up the Workspace**
+
+In this section, we will set up the R workspace before we proceed with our statistical analysis. 
+
+## 1.1&nbsp;&nbsp;&nbsp;&nbsp;Clearing the enviroment 
+
+```{r Workspace, comment=NULL, message=FALSE, warning=FALSE}
+rm(list = ls())
+```
+
+The first step is to clear the R environment. The whole point of working with R is reproducibility, which means that you shouldn't be working with previously saved data. So we begin by clearing the R environment.
+
+## 1.2&nbsp;&nbsp;&nbsp;&nbsp;Loading packages
+
+```{r Packages, comment=NULL, message=FALSE, results='hide', warning=FALSE}
+pkgs <- c("Hmisc", "ggfortify", "kableExtra", "lubridate", "scales", "sjPlot", "tidyverse")
+sapply(pkgs, function(x) if(!x %in% installed.packages()) install.packages(x, repos = "http://cran.us.r-project.org"))
+sapply(pkgs, library, character.only = TRUE)
+```
+
+As this is a reproducible research that will be shared with other researchers, the code needs to check if the packages used here is installed on the users PC before loading the package, otherwise an error will be thrown and the document will not be created.
+
+This test is done using an ```sapply```, which essentially loops over the vector of packages and checks if it is not listed in the installed packages. If this is true, the package is installed. 
+
+We then load the packages required into R, first by saving the list of packages we need to a vector. and then using ```sapply``` to load the packages in one line, rather than multiple calls to ```library```. This is very useful if one has a multitude of packages.
+
+## 1.3&nbsp;&nbsp;&nbsp;&nbsp;Global options
+
+```{r Global Options, comment=NULL, message=FALSE, warning=FALSE}
+options("scipen"=999)
+```
+
+This code removes scientific notation for up to 999 digits.
+
+# **2&nbsp;&nbsp;&nbsp;&nbsp;Exploratory Data Analysis**
+
+Exploratory Data Analysis (EDA) is very important in data analytics. It is through this process that one is able to formulate various hypotheses that can then be formally tested. 
+
+This section is therefore the longest portion of this document, which will go through various stages from the initial data imports, data cleaning and manipulation to data visualisation and hypothesis formation.
+
+## 2.1&nbsp;&nbsp;&nbsp;&nbsp;Data import
+
+We read in the data using the ```read.csv``` function from the ```utils``` package, which is installed with R and is loaded when R is launched. We set ```check.names``` to ```FALSE``` to prevent periods being placed where there is a space character. We save the data to pdata, where p stands for project. Hence, the name of the data is project data. Always try to have informative names for objects when programming.
+
+We use the ```names``` function, also from ```utils```, to see the column names of the dataset, so that we can know the variable names of the dataset.
+
+```{r data, comment=NULL, message=FALSE, warning=FALSE, results='hide'}
+pdata <- read.csv("avocado.csv", check.names = FALSE)
+names(pdata)
+```
+
+The output of the preceding command is as follows:
+
+```{r data names, comment = NULL, echo = FALSE, message = FALSE}
+names(pdata)
+```
+
+These are the variables collected in the dataset. Immediately, we can see that there is an issue with the first column, the column name is blank. So we have no clue of what is in it. 
+
+The snapshot of the preceding dataset is shown here using the `glimpse` function:
+
+```{r glimspe, comment=NULL, message=FALSE, warning=FALSE}
+glimpse(pdata)
+```
+
+One might be tempted into believing that the first column in simply a row or observation count beginning from zero. This might not be the case. To test this, we reverse the dataframe and then use glimpse on the reversed data. What this does is allow us to see the observations at the end of the data through the glimpse function, which otherwise only shows data of the first few observations.
+
+```{r reverse, comment=NULL, message=FALSE, warning=FALSE, class.output = "glimpse"}
+pdata %>% map_df(rev) %>% glimpse()
+```
+
+So, the nameless column is not equal to the number of observations in the data. We will give it an arbitrary name so that it can be selected in operations.
+
+```{r nameless column, comment=NULL, message=FALSE, warning=FALSE}
+colnames(pdata)[1] <- "code"
+```
+
+## 2.1&nbsp;&nbsp;&nbsp;&nbsp;Descriptive Statistics
+
+Descriptive statistics is a method of summarizing a dataset quantitatively. These summaries can be simple quantitative statements about the data or a visual representation sufficient enough to be part of the initial description about the dataset.
+
+To get a set of summary statistics, one can use the base R function, ```summary```. However, this function is better used for numerical data. The avocado dataset has numerical and categorical data. The ```Hmisc``` package has a function called ```describe```, which provides extra level of summary statistics. In addition to what is given by ```summary```, such as missing values, distribution of numerical variables, and distinct values of categorical variables.
+
+```{r Describe Data, comment=NULL, message=FALSE, warning=FALSE}
+d <- describe(pdata)
+```
+
+We don't print the output to the console so that it is formatted as html, using the ```html``` function, also from ```Hmisc```, because the output of this document is html file. We specifically instruct R to import the function from ```Hmisc``` to avoid potential namespace conflicts with the ```html``` function from the ```htmltools``` package.
+
+```{r descriptive statistics, comment=NULL, message=FALSE, warning=FALSE}
+Hmisc::html(describe(pdata), size=85, tabular=TRUE,
+      greek=TRUE, scroll=TRUE, rows=25, cols=125,
+      border = 2)
+```
+
+
+### 2.1.1&nbsp;&nbsp;&nbsp;&nbsp;<ins>Standard deviation</ins>
+
+There are a few more functions in R that are useful for summary analysis, which can be applied to the variables individually. To get to know the standard deviation of the dataset, we can use the sd function that can be applied to the numerical variables only. To do this, we use ```sumarise_if``` to the data, where only the variables that are numeric are selected for the summary operation
+
+```{r standard deviation, comment=NULL, message=FALSE, results='hide', warning=FALSE}
+data_sd <- pdata %>%
+  summarise_if(is.numeric, funs(sd))
+```
+
+Here is the output from the above operation
+
+```{r sd table, comment=NULL, echo=FALSE, message=FALSE, results='asis', warning=FALSE, class.output="sdTable", out.width=1024}
+data_sd %>%
+  kable() %>%
+  kable_styling("striped")
+```
+
+
+### 2.1.2&nbsp;&nbsp;&nbsp;&nbsp;<ins>Box plot</ins>
+
+We can represent the data presented by summary in a graphical format using a boxplot. We use the `ggplot2` package to create the box plot. The box plot can be plotted for the numerical columns only; hence in the aes call, we map the type of avocado to x and the average price to y. 
+
+Inside the ```geom_boxplot``` call, we specify the color, shape and size of the outliers. The theme_classic function gives a similar theme to the base ```plot``` function.
+
+```{r Boxplot code, comment=NULL, fig.keep = 'none', message=FALSE, warning=FALSE}
+ggplot(pdata, aes(x = type, y = AveragePrice, fill = type))+
+  geom_boxplot(outlier.color = "#192812", outlier.shape = 16, outlier.size = 2)+
+  scale_fill_manual(values = c("#2b501c", "#8cb575"))+
+  theme_classic()+
+  theme(legend.position="bottom")
+```
+
+This box plot shows the median, first quartile, and third quartile values for all the variables. The outliers can also be shown in the dataset. In the following boxplot, the outliers have been enabled:
+
+```{r Boxplot, comment=NULL, echo=FALSE,  dpi=600, message=FALSE, results='asis', retina = 1, warning=FALSE}
+ggplot(pdata, aes(x = type, y = AveragePrice, fill = type))+
+  geom_boxplot(outlier.color = "#192812", outlier.shape = 16, outlier.size = 2)+
+  scale_fill_manual(values = c("#2b501c", "#8cb575"))+
+  theme_classic()+
+  theme(legend.position="bottom")
+```
+
+We can see from the box plot above that organic avocados are more expensive on average than conventional avocados. Moreover, the outliers of the organic avocado are more extreme, showing that the price of the organic avocado can swing more violently than conventional avocados.
+
+### 2.1.3&nbsp;&nbsp;&nbsp;&nbsp;<ins>Density plot</ins>
+
+A density plot shows the distribution of the underlying data. Here we use a density plot to show the distribution of the sales volume of the types of avocado. Note that we transform the data by applying a log scale to the x data, which is volume, to circumvent large outliers from distorting the plot. This will allow us to see which type of avocado does more sales volume.
+
+```{r density code, comment=NULL, fig.show='hide', message=FALSE, warning=FALSE}
+pdata %>%
+ggplot(aes(x=`Total Volume`, fill=type))+
+  scale_fill_manual(values=c("#2b501c", "#8cb575"))+
+  scale_x_log10()+
+  geom_density(alpha=0.7)+
+  theme_classic()+
+  theme(legend.position="bottom")
+```
+
+As can be seen from the plot below, the conventional avocado has a higher sales volume than the organic avocado. Is this because of the price?
+
+```{r density, comment=NULL, dpi=600, echo=FALSE, message=FALSE, retina=1, warning=FALSE}
+# Plot
+pdata %>%
+ggplot(aes(x=`Total Volume`, fill=type))+
+  scale_fill_manual(values=c("#2b501c", "#8cb575"))+
+  scale_x_log10()+
+  geom_density(alpha=0.7)+
+  theme_classic()+
+  theme(legend.position="bottom")
+```
+
+
+### 2.1.4&nbsp;&nbsp;&nbsp;&nbsp;<ins>Scatterplot</ins>
+
+Let’s look at how a few different variables relate to each other, e.g: Average price and volume. The law of demand and supply states that as supply increases, price reduces. Is this the case with Avocado? Let us find out.
+
+```{r scatterplot code, comment=NULL, dpi=600, fig.show='hide',message=FALSE, retina=1, warning=FALSE}
+
+pdata %>% 
+  ggplot(aes(`Total Volume`, AveragePrice, col=type)) + 
+  geom_point() + 
+  geom_smooth(method="lm")+
+  scale_x_log10()+
+  scale_color_manual(values = c("#2b501c", "#8cb575"))+
+  theme_classic()+
+  theme(legend.position="bottom")
+```
+
+The output from the code above is shown below:
+
+```{r scatterplot, comment=NULL, dpi=600, echo=FALSE, message=FALSE, retina=1, warning=FALSE}
+
+pdata %>% 
+  ggplot(aes(`Total Volume`, AveragePrice, col=type)) + 
+  geom_point() + 
+  geom_smooth(method="lm")+
+  scale_color_manual(values = c("#2b501c", "#8cb575"))+
+  scale_x_log10()+
+  theme_classic()+
+  theme(legend.position="bottom")
+```
+
+As you can see, an increase in the volume of avocado tends to reduce the price. 
+
+### 2.1.5&nbsp;&nbsp;&nbsp;&nbsp;<ins>Bar chart</ins>
+
+We will use a bar chart to show the monthly price swings of avocados. We will filter the regions to the total US region. The code below creates a new column which shows the percentage change in the price.
+
+```{r Monthly data, comment=NULL, message=FALSE, warning=FALSE}
+growth.mon <- pdata %>%
+  filter(region == "TotalUS") %>%
+  select(Date, AveragePrice, type) %>%
+  arrange(type, Date) %>%
+  group_by(type) %>%
+  mutate(Rate = (AveragePrice - lag(AveragePrice)) / lag(AveragePrice), 
+         Date = ymd(Date)) %>%
+  select(-AveragePrice)
+
+growth.mon[is.na(growth.mon)] <- 0
+```
+
+The code below uses multiple calls to ```geom_rect``` with different fills to create a striped background.
+
+```{r monthly graph code, comment=NULL, fig.show='hide', message=FALSE, warning=FALSE, results='hide'}
+ggplot(growth.mon, aes(x = Date, y = Rate))+
+  geom_rect(ymin = 0.8, ymax = Inf,
+            xmin = 0, xmax = 1000000, fill = '#f5f6f9')+
+  geom_rect(ymin = 0.6, ymax = 0.8, 
+            xmin = 0, xmax = 1000000, fill = '#fbfcfc') +
+  geom_rect(ymin = 0.4, ymax = 0.6,
+            xmin = 0, xmax = 1000000, fill = '#f5f6f9')+
+  geom_rect(ymin = 0.2, ymax = 0.4, 
+            xmin = 0, xmax = 1000000, fill = '#fbfcfc')+ 
+  geom_rect(ymin = 0, ymax = 0.2,
+            xmin = 0, xmax = 1000000, fill = '#f5f6f9')+
+  geom_rect(ymin = -0.2, ymax = 0,
+            xmin = 0, xmax = 1000000, fill = '#fbfcfc')+
+  geom_rect(ymin = -0.4, ymax = -0.2, 
+            xmin = 0, xmax = 1000000, fill = '#f5f6f9')+
+  geom_rect(ymin = -0.6, ymax = -0.4, 
+            xmin = 0, xmax = 1000000, fill = '#fbfcfc')+
+  geom_bar(stat = "identity", aes(fill = type), 
+           show.legend = TRUE, position = "dodge")+
+  # scale_fill_continuous(low = "#0095db")+
+  scale_fill_manual(name = "Change in average price", values = c("#2b501c", "#43362e"))+
+  scale_y_continuous(NULL, labels = percent_format(), limits = c(min(growth.mon$Rate), max(growth.mon$Rate)))+
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y")+
+  theme(axis.text.x=element_text(angle=60, hjust=1))+
+  theme(legend.position = "top",
+        legend.background = element_rect(color = NA),
+        legend.key = element_rect(fill = NA, color = NA))
+```
+
+The output of the code above is shown below:
+
+```{r monthly graph, comment=NULL, dpi=600, echo=FALSE, message=FALSE, retina=1, warning=FALSE}
+ggplot(growth.mon, aes(x = Date, y = Rate))+
+  geom_rect(ymin = 0.8, ymax = Inf,
+            xmin = 0, xmax = 1000000, fill = '#f5f6f9')+
+  geom_rect(ymin = 0.6, ymax = 0.8, 
+            xmin = 0, xmax = 1000000, fill = '#fbfcfc') +
+  geom_rect(ymin = 0.4, ymax = 0.6,
+            xmin = 0, xmax = 1000000, fill = '#f5f6f9')+
+  geom_rect(ymin = 0.2, ymax = 0.4, 
+            xmin = 0, xmax = 1000000, fill = '#fbfcfc')+ 
+  geom_rect(ymin = 0, ymax = 0.2,
+            xmin = 0, xmax = 1000000, fill = '#f5f6f9')+
+  geom_rect(ymin = -0.2, ymax = 0,
+            xmin = 0, xmax = 1000000, fill = '#fbfcfc')+
+  geom_rect(ymin = -0.4, ymax = -0.2, 
+            xmin = 0, xmax = 1000000, fill = '#f5f6f9')+
+  geom_rect(ymin = -0.6, ymax = -0.4, 
+            xmin = 0, xmax = 1000000, fill = '#fbfcfc')+
+  geom_bar(stat = "identity", aes(fill = type), 
+           show.legend = TRUE, position = "dodge")+
+  # scale_fill_continuous(low = "#0095db")+
+  scale_fill_manual(name = "Change in average price", values = c("#2b501c", "#ed6325"))+
+  scale_y_continuous(NULL, labels = percent_format(), limits = c(min(growth.mon$Rate), max(growth.mon$Rate)))+
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y",expand=c(0,0))+
+  theme(axis.text.x=element_text(angle=60, hjust=1))+
+  theme(legend.position = "top",
+        legend.background = element_rect(color = NA),
+        legend.key = element_rect(fill = NA, color = NA))
+```
+
+The graph shows that from the tail end of 2017, price changes of the conventional type of avocado have been more severe than price changes of the organic type. What could have caused this?
+
+
+### 2.1.6&nbsp;&nbsp;&nbsp;&nbsp;<ins>Price Chart</ins>
+
+Finally, we look at the progression of the average avocado price. 
+
+```{r Price chart code, comment=NULL, fig.show='hide', message=FALSE, warning=FALSE}
+pdata %>%
+  mutate(Date = ymd(Date))%>%
+  ggplot(aes(x=Date, y=AveragePrice, color=type))+
+  geom_line()+
+  theme_classic()+
+  scale_color_manual(values = c("#2b501c", "#ed6325"))+
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y",expand=c(0,0))+
+  theme(axis.text.x=element_text(angle=60, hjust=1))+
+  theme(legend.position = "top")
+```
+
+Output:
+
+```{r Price chart, comment=NULL, dpi=600, echo=FALSE, message=FALSE, warning=FALSE}
+pdata %>%
+  mutate(Date = ymd(Date))%>%
+  ggplot(aes(x=Date, y=AveragePrice, color=type))+
+  geom_line()+
+  theme_classic()+
+  scale_color_manual(values = c("#2b501c", "#ed6325"))+
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y",expand=c(0,0))+
+  theme(axis.text.x=element_text(angle=60, hjust=1))+
+  theme(legend.position = "top")
+```
+
+Looks like the average price of the organic avocado has a wider range than the conventional avocado.
+
+# **3&nbsp;&nbsp;&nbsp;&nbsp;Linear Models**
+
+A linear model is a way of mathematically representing a relationship between two variables. This relationship can be shown to be statistically significant, in which case the relationship is likely to be real or statistically insignificant, in which case the relationship is virtually non-existent. 
+
+Performing a linear regression in R is remarkably simple, since R is equipped with the easy to use ```lm``` function. In this section, we will be fitting linear models to the relationships we visualised in the previous section.
+
+### 3.1&nbsp;&nbsp;&nbsp;&nbsp;Linear regression
+
+The most interesting observation we made in the previous section was that the price of avocados goes down as volume sold goes up. We will now test if this 
+relationship is statistically significant.
+
+```{r price vs volume, comment=NULL, message=FALSE, warning=FALSE}
+conmod <- pdata %>%
+  filter(type=="conventional") %>%
+  mutate(Volume = log(`Total Volume`)) %>%
+  lm(AveragePrice ~ Volume, data = .)
+
+orgmod <- pdata %>%
+  filter(type=="organic") %>%
+  mutate(Volume = log(`Total Volume`)) %>%
+  lm(AveragePrice ~ Volume, data = .)
+```
+
+We save the model in order to display the results in a table, rather than printing to the console. To this, we use the ```tab_model``` function from the ```sjPlot``` package. 
+
+```{r create lm table, results='hide'}
+tab_model(conmod, orgmod)
+```
+
+The code chunk outputs the table below:
+
+```{r display lm table, echo=FALSE, results='asis'}
+tab_model(conmod, orgmod)
+```
+
+The results show that indeed, the average price of avocado decreases as volume increases. The p-value is shows that the negative coefficient is statistically significant.
+
+### 3.2&nbsp;&nbsp;&nbsp;&nbsp;Regression diagnostics
+
+We examine if the fitted model is any good. A quick way to do this is with ```autoplot``` and ```ggfortify``` installed. This will give a ggplot2 version of the regression diagnostics plot from base R.
+
+```{r autoplot conmod, dpi=600, results='asis', class.output = 'autoplot'}
+autoplot(conmod)
+```
+
+<br>
+
+```{r autoplot orgmod, dpi=600, results='asis', class.output = 'autoplot'}
+autoplot(orgmod)
+```
+
+We can see that the model roughly follows a normal distribution as the deviations are not too steep. Furthermore, the standard deviation of the residuals does not exceed 3 and are mostly below 2.
+
+We can therefore conclude that the price of avocado drops as volume increases.
